@@ -1,9 +1,8 @@
-require 'faraday-oauth2_cached_token'
-
 require "raisers_edge/version"
 require 'require_all'
 require 'raisers_edge/connection'
 require_rel 'raisers_edge/models'
+require 'faraday/refresh_token'
 
 require 'raisers_edge/engine' if defined?(Rails)
 
@@ -21,6 +20,7 @@ module RaisersEdge
   class Configuration
     attr_accessor :client_id,
                   :client_secret,
+                  :subscription_key,
                   :base_url,
                   :api_path,
                   :logger,
@@ -56,13 +56,23 @@ module RaisersEdge
         # end
 
         #Oauth
-        c.request :oauth2_cached_token, Faraday::OAuth2CachedToken::Provider.new({
+        # c.request :oauth2_cached_token, provider: Faraday::OAuth2CachedToken::Provider.new({
+        #   id: @client_id,
+        #   secret: @client_secret,
+        #   options: {
+        #     site: "https://oauth2.sky.blackbaud.com",
+        #     authorize_url: "/authorization",
+        #     token_url: '/token'
+        #   }
+        # })
+        c.request :refresh_token, provider: Faraday::RefreshToken::Provider.new({
           id: @client_id,
           secret: @client_secret,
           options: {
             site: "https://oauth2.sky.blackbaud.com",
             authorize_url: "/authorization",
-            token_url: '/token'
+            token_url: "/token",
+            auth_code: "37ce1265303b4294abdfb54e34c6a42a"
           }
         })
 
