@@ -6,32 +6,54 @@ require 'faraday/refresh_token/token'
 module Faraday
   class RefreshToken
     class Provider < Middleware
-      attr_reader :client, :token
+      attr_reader :options, :client, :token
 
       def initialize(options)
         @options = options
         @cache   = options[:store] || ActiveSupport::Cache::MemoryStore.new
-
-        byebug
-        @client  = OAuth2::Client.new(@options[:id], @options[:secret], @options[:options])
-        @token   = @client.auth_code.get_token(@options[:options][:auth_code], redirect_uri: "http://localhost:3000/oauth/redirect")
+        @token   = setup_access_token
       end
 
-      def get_fresh_token
-        code          = "c15f2a4c28eb48599479ff3d27bdb725"
-        token_options = {redirect_uri: "http://localhost:3000/oauth/redirect"}
+      def setup_access_token
+        token = get_token
 
-        token = @token.refresh!
-        @cache.write(cache_key, token, expires_in: 9999999999)
+        unless token
+          token = Token.from_auth_code(oauth2_client.auth_code.get_token(@options[:options][:auth_code], redirect_uri: "http://localhost:3000/oauth/redirect"), @options[:options][:subscription_key])
+          @cache.write(cache_key, token)
+        end
+
         token
       end
 
       def get_token
-        get_fresh_token
-        @cache.read(cache_key) || get_fresh_token
+        puts "Getting token: #{@cache.read(cache_key)}\n\n"
+        @cache.read(cache_key)
+      end
+
+      def refresh_token
+        token = @cache.read(cache_key)
+
+        if token
+          puts "Refreshing token..."
+          token = token.refresh!
+          @cache.write(cache_key, token, token.expires_at) if token
+        else
+          #todo: can we automate this?
+          puts "NO token. Regenerate auth_code and restart..."
+        end
+
+        token
+      end
+
+      def get_token
+        @cache.read(cache_key)
       end
 
       private
+      def oauth2_client
+        OAuth2::Client.new(@options[:id], @options[:secret], @options[:options])
+      end
+
       def cache_key
         "refresh_token_#{@options[:id]}"
       end

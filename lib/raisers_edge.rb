@@ -21,6 +21,7 @@ module RaisersEdge
     attr_accessor :client_id,
                   :client_secret,
                   :subscription_key,
+                  :auth_code,
                   :base_url,
                   :api_path,
                   :logger,
@@ -49,7 +50,6 @@ module RaisersEdge
       @connection_path = "#{@base_url}/#{@api_path}"
 
       @connection.setup url: @connection_path, ssl: @ssl_options, proxy: @proxy do |c|
-
         # if @logger
         #   #Connection Debugging
         #   c.use RaisersEdge::DebugMiddleware, @logger
@@ -65,21 +65,24 @@ module RaisersEdge
         #     token_url: '/token'
         #   }
         # })
+
         c.request :refresh_token, provider: Faraday::RefreshToken::Provider.new({
           id: @client_id,
           secret: @client_secret,
+          store: Rails.cache.class.new,
           options: {
             site: "https://oauth2.sky.blackbaud.com",
             authorize_url: "/authorization",
             token_url: "/token",
-            auth_code: "37ce1265303b4294abdfb54e34c6a42a"
+            subscription_key: @subscription_key,
+            auth_code: @auth_code
           }
         })
 
         # Request
         c.use Faraday::Request::UrlEncoded
 
-       # Response
+        # Response
         c.use Her::Middleware::DefaultParseJSON
 
         # Adapter
